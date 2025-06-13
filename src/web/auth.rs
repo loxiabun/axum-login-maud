@@ -1,4 +1,4 @@
-use askama::Template;
+use maud::{html, Markup, DOCTYPE};
 use axum::{
     extract::Query,
     http::StatusCode,
@@ -10,11 +10,40 @@ use serde::Deserialize;
 
 use crate::users::{AuthSession, Credentials};
 
-#[derive(Template)]
-#[template(path = "login.html")]
-pub struct LoginTemplate {
-    message: Option<String>,
-    next: Option<String>,
+fn login_page(message: Option<String>, next: Option<String>) -> Markup {
+    html! {
+        (DOCTYPE)
+        html {
+            head {
+                title { "Login" }
+                style { r#"
+                  label { display: block; margin-bottom: 5px; }
+                "# }
+            }
+            body {
+                @if let Some(message) = &message {
+                    span { strong { (message) } }
+                }
+                form method="post" {
+                    fieldset {
+                        legend { "User login" }
+                        p {
+                            label for="username" { "Username" }
+                            input name="username" id="username" value="ferris" {}
+                        }
+                        p {
+                            label for="password" { "Password" }
+                            input name="password" id="password" type="password" value="hunter42" {}
+                        }
+                    }
+                    input type="submit" value="login" {}
+                    @if let Some(next) = &next {
+                        input type="hidden" name="next" value=(next) {}
+                    }
+                }
+            }
+        }
+    }
 }
 
 // This allows us to extract the "next" field from the query string. We use this
@@ -42,12 +71,10 @@ mod post {
             Ok(Some(user)) => user,
             Ok(None) => {
                 return Html(
-                    LoginTemplate {
-                        message: Some("Invalid credentials.".to_string()),
-                        next: creds.next,
-                    }
-                    .render()
-                    .unwrap(),
+                    login_page(
+                        Some("Invalid credentials.".to_string()),
+                        creds.next,
+                    ).into_string(),
                 )
                 .into_response()
             }
@@ -71,12 +98,7 @@ mod get {
 
     pub async fn login(Query(NextUrl { next }): Query<NextUrl>) -> Html<String> {
         Html(
-            LoginTemplate {
-                message: None,
-                next,
-            }
-            .render()
-            .unwrap(),
+            login_page(None, next).into_string(),
         )
     }
 
